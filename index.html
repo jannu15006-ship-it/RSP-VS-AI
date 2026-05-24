@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARIA vs RPS</title>
+  <style>
+    :root {
+      --bg: #090b13;
+      --panel: rgba(15, 19, 30, 0.95);
+      --panel-border: rgba(127, 145, 173, 0.18);
+      --text: #f3f7ff;
+      --muted: #a5b2ca;
+      --accent: #6fd3ff;
+      --accent-2: #90f4b9;
+      --warn: #ffd36b;
+      --danger: #ff8e8e;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #111829 0%, #090b13 55%, #03060d 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 18px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 14px;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2vw, 2rem);
+      letter-spacing: 0.04em;
+    }
+
+    .title-block p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.5;
+    }
+
+    .status-pill {
+      border: 1px solid var(--panel-border);
+      background: rgba(14, 18, 30, 0.92);
+      border-radius: 999px;
+      padding: 12px 16px;
+      min-width: 240px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .status-pill strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .status-pill span {
+      color: var(--muted);
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(17, 22, 36, 0.98), rgba(12, 15, 25, 0.98));
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .player-panel {
+      padding: 18px;
+    }
+
+    .video-shell {
+      position: relative;
+      height: 500px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 13, 24, 0.95), rgba(6, 8, 16, 0.95));
+      border: 1px solid rgba(127, 145, 173, 0.12);
+    }
+
+    .video-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.14), transparent 20%, transparent 80%, rgba(0, 0, 0, 0.2));
+      pointer-events: none;
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: #060915;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .badge-row {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 2;
+      display: flex;
+      gap: 10px;
+    }
+
+    .gesture-badge, .score-badge, .result-badge {
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      background: rgba(7, 10, 20, 0.8);
+      border: 1px solid rgba(127, 145, 173, 0.2);
+      backdrop-filter: blur(10px);
+    }
+
+    .gesture-badge { color: var(--accent); }
+    .score-badge { color: var(--warn); }
+
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .mode-selector {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn, .primary-btn, .secondary-btn {
+      border: 1px solid rgba(127, 145, 173, 0.25);
+      background: rgba(13, 17, 28, 0.9);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .mode-btn:hover,
+    .primary-btn:hover,
+    .secondary-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .mode-btn.active {
+      border-color: rgba(111, 211, 255, 0.55);
+      background: rgba(16, 49, 78, 0.9);
+      color: #fff;
+    }
+
+    .difficulty-btn.active {
+      border-color: rgba(144, 244, 185, 0.5);
+      background: rgba(18, 54, 39, 0.88);
+      color: #fff;
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, rgba(111, 211, 255, 0.24), rgba(144, 244, 185, 0.16));
+      border-color: rgba(111, 211, 255, 0.5);
+      color: #fff;
+    }
+
+    .secondary-btn {
+      background: rgba(17, 22, 36, 0.92);
+    }
+
+    .player-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    .hint {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .result-strip {
+      margin-top: 14px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(127, 145, 173, 0.18);
+      background: linear-gradient(180deg, rgba(16, 20, 32, 0.98), rgba(10, 13, 20, 0.95));
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 92px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .result-strip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .result-strip h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+
+    .result-strip p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .result-badge {
+      color: var(--accent-2);
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    .ai-panel {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .ai-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .ai-header strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .ai-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .aria-card {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .ai-emoji {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 120px;
+      height: 120px;
+      border-radius: 32px;
+      background: linear-gradient(135deg, rgba(111, 211, 255, 0.18), rgba(144, 244, 185, 0.12));
+      border: 1px solid rgba(111, 211, 255, 0.25);
+      font-size: 4rem;
+      margin: 0 auto;
+      box-shadow: inset 0 1px 8px rgba(111, 211, 255, 0.14);
+    }
+
+    .speech-bubble {
+      position: relative;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(14, 18, 28, 0.9);
+      border: 1px solid rgba(127, 145, 173, 0.18);
+      color: var(--text);
+      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      left: 26px;
+      bottom: -10px;
+      width: 18px;
+      height: 18px;
+      background: rgba(14, 18, 28, 0.9);
+      border-left: 1px solid rgba(127, 145, 173, 0.18);
+      border-bottom: 1px solid rgba(127, 145, 173, 0.18);
+      transform: rotate(45deg);
+    }
+
+    .hand-canvas-wrap {
+      border-radius: 22px;
+      background: radial-gradient(circle at top, rgba(12, 18, 28, 0.98), rgba(6, 8, 16, 0.98));
+      border: 1px solid rgba(127, 145, 173, 0.12);
+      padding: 12px;
+    }
+
+    #aiHandCanvas {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(11, 14, 24, 0.92);
+      border: 1px solid rgba(127, 145, 173, 0.15);
+    }
+
+    .stat-card h3 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .bar-chart {
+      display: grid;
+      gap: 9px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 56px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .bar-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(127, 145, 173, 0.12);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      width: 0%;
+      transition: width 220ms ease;
+    }
+
+    .bar-value {
+      text-align: right;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-item {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(8, 10, 16, 0.84);
+      border: 1px solid rgba(127, 145, 173, 0.12);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.94rem;
+    }
+
+    .history-item span:last-child {
+      color: var(--muted);
+    }
+
+    .summary-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 5, 10, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+
+    .summary-overlay.visible {
+      display: flex;
+    }
+
+    .summary-card {
+      width: min(760px, 100%);
+      border-radius: 26px;
+      padding: 24px;
+      background: linear-gradient(180deg, rgba(15, 20, 32, 0.98), rgba(8, 11, 19, 0.98));
+      border: 1px solid rgba(127, 145, 173, 0.2);
+      box-shadow: var(--shadow);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .summary-item {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(9, 12, 20, 0.92);
+      border: 1px solid rgba(127, 145, 173, 0.12);
+    }
+
+    .summary-item h4 {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .summary-item p {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .summary-footer {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .confetti-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 19;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -20px;
+      width: 8px;
+      height: 20px;
+      border-radius: 999px;
+      opacity: 0.9;
+    }
+
+    @media (max-width: 980px) {
+      .game-grid {
+        grid-template-columns: 1fr;
+      }
+      .stats-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="title-block">
+        <h1>ARIA vs Rock Paper Scissors</h1>
+        <p>Use the webcam to throw a real hand gesture. ARIA will watch your patterns, counter them, and talk trash while the hand animation reacts live.</p>
+      </div>
+      <div class="status-pill" id="statusPill">
+        <strong id="countdownText">Ready</strong>
+        <span id="statusText">Select a best-of mode and start your first round.</span>
+      </div>
+    </div>
+
+    <div class="game-grid">
+      <section class="panel player-panel">
+        <div class="video-shell">
+          <video id="video" autoplay playsinline></video>
+          <canvas id="overlay"></canvas>
+          <div class="badge-row">
+            <div class="gesture-badge" id="gestureBadge">Gesture: Detecting…</div>
+            <div class="score-badge" id="scoreBadge">Score 0–0–0</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div>
+            <div class="mode-selector">
+              <button class="mode-btn active" data-mode="3">Best of 3</button>
+              <button class="mode-btn" data-mode="5">Best of 5</button>
+            </div>
+            <div class="mode-selector" style="margin-top: 10px;">
+              <button class="mode-btn difficulty-btn active" data-difficulty="Easy">Easy</button>
+              <button class="mode-btn difficulty-btn" data-difficulty="Medium">Medium</button>
+              <button class="mode-btn difficulty-btn" data-difficulty="Hard">Hard</button>
+            </div>
+            <div class="player-meta">
+              <span id="modeLabel">Mode: Best of 3</span>
+              <span id="roundLabel">Round 0 / 3</span>
+            </div>
+          </div>
+          <div>
+            <button class="primary-btn" id="playRoundBtn">Play Round</button>
+            <button class="secondary-btn" id="resetBtn" style="margin-left: 8px;">Reset</button>
+          </div>
+        </div>
+
+        <div class="hint" id="hintText">Keep your hand in frame and make a fist, open hand, or two fingers up.</div>
+
+        <div class="result-strip" id="resultStrip">
+          <div>
+            <h2 id="resultTitle">Awaiting your move</h2>
+            <p id="resultBody">When the countdown hits GO, ARIA will lock in your current gesture.</p>
+          </div>
+          <div class="result-badge" id="resultBadge">Ready</div>
+        </div>
+      </section>
+
+      <aside class="panel ai-panel">
+        <div class="ai-header">
+          <div>
+            <strong>ARIA • AI Reaction Intelligence Agent</strong>
+            <p>Large hand reacts to your chosen move and the current difficulty.</p>
+          </div>
+          <div class="score-badge" id="difficultyBadge">Difficulty: Easy</div>
+        </div>
+
+        <div class="aria-card">
+          <div class="ai-emoji" id="ariaEmoji">🤖</div>
+          <div class="speech-bubble" id="speechBubble">I'm warming up. Show me your best move.</div>
+        </div>
+
+        <div class="hand-canvas-wrap">
+          <canvas id="aiHandCanvas"></canvas>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3>Win Rate</h3>
+            <div class="stat-value" id="winRateValue">0%</div>
+            <div class="hint" id="winRateHint">No rounds yet.</div>
+          </div>
+          <div class="stat-card">
+            <h3>Difficulty</h3>
+            <div class="stat-value" id="difficultyValue">Easy</div>
+            <div class="hint" id="difficultyHint">Random play, friendly banter.</div>
+          </div>
+          <div class="stat-card" style="grid-column: 1 / -1;">
+            <h3>Gesture Frequency</h3>
+            <div class="bar-chart" id="barChart"></div>
+          </div>
+          <div class="stat-card" style="grid-column: 1 / -1;">
+            <h3>Last 5 Rounds</h3>
+            <div class="history-list" id="historyList"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="summary-overlay" id="summaryOverlay">
+    <div class="summary-card">
+      <div>
+        <h2 id="summaryTitle">Match complete</h2>
+        <p id="summarySubtitle">Your final breakdown is ready.</p>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <h4>Total Score</h4>
+          <p id="summaryScore">0–0–0</p>
+        </div>
+        <div class="summary-item">
+          <h4>Match Outcome</h4>
+          <p id="summaryOutcome">Draw</p>
+        </div>
+        <div class="summary-item">
+          <h4>Most Thrown Gesture</h4>
+          <p id="summaryMostThrown">Rock</p>
+        </div>
+        <div class="summary-item">
+          <h4>Weakest Gesture</h4>
+          <p id="summaryWeakest">Paper</p>
+        </div>
+        <div class="summary-item">
+          <h4>What Beat You Most</h4>
+          <p id="summaryBeatYouMost">Scissors</p>
+        </div>
+        <div class="summary-item">
+          <h4>Win Rate</h4>
+          <p id="summaryWinRate">0%</p>
+        </div>
+      </div>
+      <div class="summary-footer">
+        <div class="hint" id="summaryHint">Rematch to try a new strategy.</div>
+        <button class="primary-btn" id="rematchBtn">Rematch</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="confetti-layer" id="confettiLayer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script>
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const aiCanvas = document.getElementById('aiHandCanvas');
+    const playRoundBtn = document.getElementById('playRoundBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const rematchBtn = document.getElementById('rematchBtn');
+    const resultStrip = document.getElementById('resultStrip');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultBody = document.getElementById('resultBody');
+    const resultBadge = document.getElementById('resultBadge');
+    const gestureBadge = document.getElementById('gestureBadge');
+    const scoreBadge = document.getElementById('scoreBadge');
+    const statusPill = document.getElementById('statusPill');
+    const countdownText = document.getElementById('countdownText');
+    const statusText = document.getElementById('statusText');
+    const difficultyBadge = document.getElementById('difficultyBadge');
+    const difficultyValue = document.getElementById('difficultyValue');
+    const difficultyHint = document.getElementById('difficultyHint');
+    const speechBubble = document.getElementById('speechBubble');
+    const ariaEmoji = document.getElementById('ariaEmoji');
+    const winRateValue = document.getElementById('winRateValue');
+    const winRateHint = document.getElementById('winRateHint');
+    const historyList = document.getElementById('historyList');
+    const barChart = document.getElementById('barChart');
+    const roundLabel = document.getElementById('roundLabel');
+    const modeLabel = document.getElementById('modeLabel');
+    const hintText = document.getElementById('hintText');
+    const summaryOverlay = document.getElementById('summaryOverlay');
+    const summaryTitle = document.getElementById('summaryTitle');
+    const summarySubtitle = document.getElementById('summarySubtitle');
+    const summaryScore = document.getElementById('summaryScore');
+    const summaryOutcome = document.getElementById('summaryOutcome');
+    const summaryMostThrown = document.getElementById('summaryMostThrown');
+    const summaryWeakest = document.getElementById('summaryWeakest');
+    const summaryBeatYouMost = document.getElementById('summaryBeatYouMost');
+    const summaryWinRate = document.getElementById('summaryWinRate');
+    const summaryHint = document.getElementById('summaryHint');
+    const confettiLayer = document.getElementById('confettiLayer');
+
+    const modeButtons = [...document.querySelectorAll('.mode-btn[data-mode]')];
+    const difficultyButtons = [...document.querySelectorAll('.difficulty-btn')];
+    const gestureOrder = ['Rock', 'Paper', 'Scissors'];
+    const gestureIcons = { Rock: '✊', Paper: '✋', Scissors: '✌️' };
+    const difficultyProfiles = {
+      Easy: {
+        title: 'Easy',
+        hint: 'Random play, friendly banter.',
+        bubble: 'Take it easy on me 😄'
+      },
+      Medium: {
+        title: 'Medium',
+        hint: 'Countering your most played move.',
+        bubble: 'I’m starting to notice your style.'
+      },
+      Hard: {
+        title: 'Hard',
+        hint: 'Tracking your last 10 throws and countering patterns.',
+        bubble: 'I’ve been reading your tells all night.'
+      }
+    };
+
+    const connections = [
+      [0, 1], [1, 2], [2, 3], [3, 4],
+      [0, 5], [5, 6], [6, 7], [7, 8],
+      [0, 9], [9, 10], [10, 11], [11, 12],
+      [0, 13], [13, 14], [14, 15], [15, 16],
+      [0, 17], [17, 18], [18, 19], [19, 20]
+    ];
+
+    const syntheticGestures = {
+      Rock: [
+        [0.5, 0.86], [0.44, 0.68], [0.38, 0.58], [0.30, 0.54], [0.22, 0.52],
+        [0.52, 0.62], [0.54, 0.48], [0.55, 0.35], [0.56, 0.23],
+        [0.50, 0.62], [0.50, 0.46], [0.50, 0.33], [0.50, 0.19],
+        [0.48, 0.62], [0.46, 0.48], [0.44, 0.35], [0.42, 0.24],
+        [0.44, 0.62], [0.40, 0.48], [0.36, 0.34], [0.32, 0.24]
+      ],
+      Paper: [
+        [0.5, 0.86], [0.38, 0.65], [0.28, 0.58], [0.24, 0.50], [0.20, 0.44],
+        [0.42, 0.63], [0.40, 0.43], [0.38, 0.26], [0.37, 0.16],
+        [0.50, 0.58], [0.50, 0.38], [0.50, 0.20], [0.50, 0.10],
+        [0.58, 0.58], [0.62, 0.38], [0.66, 0.20], [0.70, 0.10],
+        [0.67, 0.62], [0.75, 0.42], [0.82, 0.24], [0.87, 0.12]
+      ],
+      Scissors: [
+        [0.5, 0.86], [0.40, 0.68], [0.30, 0.62], [0.24, 0.54], [0.18, 0.50],
+        [0.41, 0.64], [0.39, 0.45], [0.37, 0.28], [0.36, 0.12],
+        [0.50, 0.58], [0.50, 0.36], [0.50, 0.18], [0.50, 0.06],
+        [0.58, 0.62], [0.64, 0.52], [0.70, 0.42], [0.74, 0.36],
+        [0.66, 0.62], [0.72, 0.50], [0.78, 0.40], [0.82, 0.34]
+      ]
+    };
+
+    const game = {
+      mode: 3,
+      difficulty: 'Easy',
+      playerScore: 0,
+      aiScore: 0,
+      draws: 0,
+      rounds: 0,
+      roundNumber: 0,
+      started: false,
+      matchEnded: false,
+      currentGesture: null,
+      detectedGesture: 'Detecting…',
+      aiGesture: 'Rock',
+      roundHistory: [],
+      playerHistory: [],
+      stats: {
+        Rock: 0,
+        Paper: 0,
+        Scissors: 0,
+        AiWins: { Rock: 0, Paper: 0, Scissors: 0 }
+      },
+      countdownTimer: null,
+      countdownValue: 0,
+      aiAnimation: {
+        mode: 'thinking',
+        pose: syntheticGestures.Rock,
+        target: syntheticGestures.Rock,
+        transitionStart: 0,
+        wobble: 0
+      },
+      latestResult: null,
+      lastFive: []
+    };
+
+    let handsInstance = null;
+    let camera = null;
+    let audioContext; 
+    let lastFrameTime = 0;
+
+    function ensureAudioContext() {
+      if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        audioContext = new AudioContextClass();
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+
+    function playTone(freq, duration, type = 'sine', gain = 0.08) {
+      ensureAudioContext();
+      if (!audioContext) return;
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.type = type;
+      oscillator.frequency.value = freq;
+      gainNode.gain.value = gain;
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + duration);
+    }
+
+    function playCountdownTone(step) {
+      playTone(220 + step * 70, 0.12, 'triangle', 0.05);
+    }
+
+    function playResultSound(result) {
+      if (result === 'win') {
+        playTone(440, 0.18, 'square', 0.06);
+        setTimeout(() => playTone(660, 0.16, 'square', 0.05), 90);
+      } else if (result === 'lose') {
+        playTone(220, 0.24, 'sawtooth', 0.05);
+      } else {
+        playTone(330, 0.18, 'sine', 0.05);
+      }
+    }
+
+    function setDifficulty(level) {
+      game.difficulty = level;
+      difficultyBadge.textContent = `Difficulty: ${level}`;
+      difficultyValue.textContent = level;
+      difficultyHint.textContent = difficultyProfiles[level].hint;
+      speechBubble.textContent = difficultyProfiles[level].bubble;
+      ariaEmoji.textContent = '🤖';
+      updateStatus('Ready', 'Select a mode and press Play Round when you are ready.');
+    }
+
+    function updateStatus(label, text) {
+      countdownText.textContent = label;
+      statusText.textContent = text;
+    }
+
+    function formatScore() {
+      return `${game.playerScore}-${game.aiScore}-${game.draws}`;
+    }
+
+    function updateScoreBadge() {
+      scoreBadge.textContent = `Score ${formatScore()}`;
+    }
+
+    function computeGestureData() {
+      const total = game.stats.Rock + game.stats.Paper + game.stats.Scissors;
+      const values = ['Rock', 'Paper', 'Scissors'].map((gesture) => ({
+        gesture,
+        value: total ? Math.round((game.stats[gesture] / total) * 100) : 0
+      }));
+      return values;
+    }
+
+    function renderBarChart() {
+      barChart.innerHTML = '';
+      const totals = computeGestureData();
+      totals.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        row.innerHTML = `
+          <div class="bar-label">${item.gesture}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${item.value}%"></div></div>
+          <div class="bar-value">${item.value}%</div>
+        `;
+        barChart.appendChild(row);
+      });
+    }
+
+    function updateWinRate() {
+      const rounds = game.rounds || 0;
+      const winRate = rounds ? Math.round((game.playerScore / rounds) * 100) : 0;
+      winRateValue.textContent = `${winRate}%`;
+      if (rounds === 0) {
+        winRateHint.textContent = 'No rounds yet.';
+      } else {
+        winRateHint.textContent = `${game.playerScore} win${game.playerScore === 1 ? '' : 's'} • ${game.aiScore} loss${game.aiScore === 1 ? '' : 'es'} • ${game.draws} draw${game.draws === 1 ? '' : 's'}`;
+      }
+    }
+
+    function renderHistory() {
+      historyList.innerHTML = '';
+      const recent = [...game.roundHistory].slice(-5).reverse();
+      if (!recent.length) {
+        const empty = document.createElement('div');
+        empty.className = 'history-item';
+        empty.innerHTML = '<span>Waiting for your first round…</span><span>—</span>';
+        historyList.appendChild(empty);
+        return;
+      }
+      recent.forEach((round) => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<span>${round.player} ${gestureIcons[round.player]} vs ${round.ai} ${gestureIcons[round.ai]} → ${round.result}</span><span>${round.label}</span>`;
+        historyList.appendChild(item);
+      });
+    }
+
+    function updateRoundLabel() {
+      roundLabel.textContent = `Round ${game.rounds} / ${game.mode}`;
+    }
+
+    function updateModeLabel() {
+      modeLabel.textContent = `Mode: Best of ${game.mode}`;
+    }
+
+    function setResultCard(title, body, badge) {
+      resultTitle.textContent = title;
+      resultBody.textContent = body;
+      resultBadge.textContent = badge;
+      resultStrip.classList.add('visible');
+    }
+
+    function updateGestureBadge() {
+      const label = game.detectedGesture === 'Detecting…' ? 'Detecting…' : game.detectedGesture;
+      gestureBadge.textContent = `Gesture: ${label}`;
+    }
+
+    function counterGesture(gesture) {
+      if (gesture === 'Rock') return 'Paper';
+      if (gesture === 'Paper') return 'Scissors';
+      return 'Rock';
+    }
+
+    function mostFrequentGesture(history) {
+      const count = { Rock: 0, Paper: 0, Scissors: 0 };
+      history.forEach((g) => { count[g] += 1; });
+      const sorted = Object.entries(count).sort((a, b) => b[1] - a[1]);
+      return sorted[0][0];
+    }
+
+    function getPatternShot() {
+      const last = game.playerHistory.slice(-10);
+      if (!last.length) return null;
+      const counts = { Rock: 0, Paper: 0, Scissors: 0 };
+      last.forEach((g) => counts[g] += 1);
+      const max = Math.max(...Object.values(counts));
+      const dominant = Object.keys(counts).find((key) => counts[key] === max);
+      return { dominant, max, total: last.length };
+    }
+
+    function buildTrashTalk(result, aiMove, playerMove) {
+      const confidence = getPatternShot();
+      if (game.difficulty === 'Easy') {
+        return 'Nice try. I’m just getting warmed up 😄';
+      }
+      if (playerMove && playerMove === game.lastFive[game.lastFive.length - 1]) {
+        return `I knew you'd throw ${playerMove} again 😏`;
+      }
+      if (game.difficulty === 'Medium') {
+        const lastFive = game.playerHistory.slice(-5);
+        if (lastFive.length >= 3) {
+          const dominant = mostFrequentGesture(lastFive);
+          return `I’m starting to notice you favor ${dominant}. Try to surprise me 😏`;
+        }
+        return 'I’m getting a read on your rhythm.';
+      }
+      if (confidence && confidence.total >= 4) {
+        const percent = Math.round((confidence.max / confidence.total) * 100);
+        return `I noticed you throw ${confidence.dominant} ${percent}% of the time 😏`;
+      }
+      return 'You can’t hide from ARIA forever 😏';
+    }
+
+    function ariaReact(result) {
+      if (result === 'win') {
+        ariaEmoji.textContent = '😏';
+        speechBubble.textContent = 'Too easy.';
+      } else if (result === 'lose') {
+        ariaEmoji.textContent = '😤';
+        speechBubble.textContent = 'Lucky shot.';
+      } else {
+        ariaEmoji.textContent = '😐';
+        speechBubble.textContent = 'Hmm.';
+      }
+    }
+
+    function chooseAiMove() {
+      const history = game.playerHistory.slice(-10);
+      if (game.difficulty === 'Easy') {
+        const randomIndex = Math.floor(Math.random() * 3);
+        return gestureOrder[randomIndex];
+      }
+      if (game.difficulty === 'Medium') {
+        const lastFive = game.playerHistory.slice(-5);
+        if (lastFive.length === 0) {
+          return gestureOrder[Math.floor(Math.random() * 3)];
+        }
+        const favored = mostFrequentGesture(lastFive);
+        return counterGesture(favored);
+      }
+      const pattern = getPatternShot();
+      if (pattern && pattern.total >= 3) {
+        return counterGesture(pattern.dominant);
+      }
+      return gestureOrder[Math.floor(Math.random() * 3)];
+    }
+
+    function compareMoves(player, ai) {
+      if (player === ai) return 'draw';
+      if (
+        (player === 'Rock' && ai === 'Scissors') ||
+        (player === 'Paper' && ai === 'Rock') ||
+        (player === 'Scissors' && ai === 'Paper')
+      ) {
+        return 'win';
+      }
+      return 'lose';
+    }
+
+    function setRoundResult(result, playerMove, aiMove, reason = '') {
+      const outcome = result === 'win' ? 'Victory' : result === 'lose' ? 'Defeat' : 'Draw';
+      game.rounds += 1;
+      game.roundNumber = game.rounds;
+      game.roundHistory.push({
+        player: playerMove || 'None',
+        ai: aiMove,
+        result: outcome,
+        label: `${game.rounds}`
+      });
+
+      if (playerMove) {
+        game.playerHistory.push(playerMove);
+        game.stats[playerMove] += 1;
+      }
+      game.stats.AiWins[aiMove] += result === 'lose' ? 1 : 0;
+
+      if (result === 'win') {
+        game.playerScore += 1;
+      } else if (result === 'lose') {
+        game.aiScore += 1;
+      } else {
+        game.draws += 1;
+      }
+
+      updateScoreBadge();
+      updateWinRate();
+      renderBarChart();
+      renderHistory();
+      updateRoundLabel();
+
+      if (result === 'win') {
+        setResultCard('Round won', reason || `You played ${playerMove} and ARIA played ${aiMove}.`, 'Win');
+        playResultSound('win');
+      } else if (result === 'lose') {
+        setResultCard('Round lost', reason || `ARIA countered your ${playerMove || 'unknown'} with ${aiMove}.`, 'Loss');
+        playResultSound('lose');
+      } else {
+        setResultCard('Draw', reason || `Both players threw ${playerMove}.`, 'Draw');
+        playResultSound('draw');
+      }
+
+      ariaReact(result);
+      speechBubble.textContent = buildTrashTalk(result, aiMove, playerMove);
+
+      const matchTarget = game.mode;
+      const scoreNeeded = Math.ceil(matchTarget / 2);
+      if (game.playerScore >= scoreNeeded || game.aiScore >= scoreNeeded || game.rounds >= game.mode) {
+        endMatch();
+      } else {
+        updateStatus('Ready', `Round ${game.rounds} complete. Press Play Round for the next challenge.`);
+      }
+    }
+
+    function endMatch() {
+      const playerWins = game.playerScore > game.aiScore;
+      const outcome = playerWins ? 'Victory' : game.aiScore > game.playerScore ? 'Defeat' : 'Draw';
+      game.matchEnded = true;
+      playRoundBtn.disabled = true;
+      playRoundBtn.textContent = 'Match Complete';
+      updateStatus('Complete', 'The match has ended. Review the summary or start a rematch.');
+      summaryOverlay.classList.add('visible');
+      summaryTitle.textContent = playerWins ? 'You won the match!' : game.aiScore > game.playerScore ? 'ARIA takes the match' : 'It ends in a draw';
+      summarySubtitle.textContent = playerWins ? 'The confetti is falling for your win.' : 'Another round is waiting.';
+      summaryScore.textContent = formatScore();
+      summaryOutcome.textContent = outcome;
+      const mostThrown = game.stats.Rock >= game.stats.Paper && game.stats.Rock >= game.stats.Scissors ? 'Rock' : game.stats.Paper >= game.stats.Scissors ? 'Paper' : 'Scissors';
+      const weakest = [...['Rock', 'Paper', 'Scissors']].sort((a, b) => game.stats[a] - game.stats[b])[0];
+      const beatYouMost = Object.entries(game.stats.AiWins).sort((a, b) => b[1] - a[1])[0][0];
+      summaryMostThrown.textContent = mostThrown;
+      summaryWeakest.textContent = weakest;
+      summaryBeatYouMost.textContent = beatYouMost;
+      summaryWinRate.textContent = `${Math.round((game.playerScore / game.rounds) * 100) || 0}%`;
+      summaryHint.textContent = playerWins ? 'Confetti triggered for a clean finish.' : 'Try a different pattern next time.';
+      if (playerWins) {
+        launchConfetti();
+      }
+    }
+
+    function resetGame() {
+      game.playerScore = 0;
+      game.aiScore = 0;
+      game.draws = 0;
+      game.rounds = 0;
+      game.roundNumber = 0;
+      game.started = false;
+      game.matchEnded = false;
+      game.currentGesture = null;
+      game.detectedGesture = 'Detecting…';
+      game.roundHistory = [];
+      game.playerHistory = [];
+      game.stats = { Rock: 0, Paper: 0, Scissors: 0, AiWins: { Rock: 0, Paper: 0, Scissors: 0 } };
+      game.aiAnimation.mode = 'thinking';
+      game.aiAnimation.pose = syntheticGestures.Rock;
+      game.aiAnimation.target = syntheticGestures.Rock;
+      game.latestResult = null;
+      resultStrip.classList.remove('visible');
+      updateScoreBadge();
+      updateWinRate();
+      renderBarChart();
+      renderHistory();
+      updateRoundLabel();
+      updateGestureBadge();
+      playRoundBtn.disabled = false;
+      playRoundBtn.textContent = 'Play Round';
+      summaryOverlay.classList.remove('visible');
+      confettiLayer.innerHTML = '';
+      updateStatus('Ready', 'Select a mode and press Play Round to begin.');
+      speechBubble.textContent = difficultyProfiles[game.difficulty].bubble;
+      ariaEmoji.textContent = '🤖';
+      hintText.textContent = 'Keep your hand in frame and make a fist, open hand, or two fingers up.';
+    }
+
+    function updateCountdown(value) {
+      game.countdownValue = value;
+      if (value > 0) {
+        updateStatus(String(value), 'The countdown is ticking. Keep your gesture steady.');
+        playCountdownTone(value);
+      } else {
+        updateStatus('GO!', 'Capture the gesture now.');
+        playCountdownTone(1);
+      }
+    }
+
+    function startCountdown() {
+      if (game.countdownTimer) return;
+      game.countdownTimer = 3;
+      updateCountdown(3);
+      const interval = setInterval(() => {
+        game.countdownTimer -= 1;
+        if (game.countdownTimer === 2) {
+          updateCountdown(2);
+        } else if (game.countdownTimer === 1) {
+          updateCountdown(1);
+        } else if (game.countdownTimer === 0) {
+          clearInterval(interval);
+          game.countdownTimer = null;
+          updateCountdown(0);
+          setTimeout(() => finishRound(), 200);
+        }
+      }, 950);
+    }
+
+    function finishRound() {
+      captureCurrentGesture();
+      const playerMove = game.currentGesture;
+      game.aiGesture = chooseAiMove();
+      game.aiAnimation.target = syntheticGestures[game.aiGesture];
+      game.aiAnimation.mode = 'transition';
+      game.aiAnimation.transitionStart = performance.now();
+
+      if (!playerMove) {
+        setRoundResult('lose', null, game.aiGesture, 'No gesture was detected at GO, so the round was forfeited.');
+        return;
+      }
+
+      const result = compareMoves(playerMove, game.aiGesture);
+      setRoundResult(result, playerMove, game.aiGesture, `You threw ${playerMove}, ARIA threw ${game.aiGesture}.`);
+    }
+
+    function startRound() {
+      if (game.matchEnded) {
+        return;
+      }
+      game.started = true;
+      playRoundBtn.disabled = true;
+      game.currentGesture = null;
+      game.aiAnimation.mode = 'thinking';
+      game.aiAnimation.target = syntheticGestures[game.aiGesture] || syntheticGestures.Rock;
+      updateStatus('3', 'The countdown is about to begin.');
+      setResultCard('Countdown underway', 'Keep your hand in the frame and prepare to match ARIA at GO.', 'Ready');
+      startCountdown();
+      setTimeout(() => {
+        if (!game.matchEnded) {
+          playRoundBtn.disabled = false;
+        }
+      }, 3200);
+      hintText.textContent = 'Hold the gesture steady and watch the badge update before GO.';
+    }
+
+    function captureCurrentGesture() {
+      const detected = game.detectedGesture;
+      game.currentGesture = detected === 'Detecting…' ? null : detected;
+    }
+
+    function onPlayRound() {
+      if (game.matchEnded) {
+        resetGame();
+        return;
+      }
+      if (game.countdownTimer) {
+        return;
+      }
+      if (game.rounds >= game.mode) {
+        return;
+      }
+      if (game.rounds === 0) {
+        updateStatus('3', 'Beginning the first round.');
+      }
+      startRound();
+    }
+
+    function getRandomColor() {
+      const colors = ['#6fd3ff', '#90f4b9', '#ffd36b', '#ff8e8e', '#f7a8ff'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function launchConfetti() {
+      confettiLayer.innerHTML = '';
+      const pieces = 70;
+      for (let i = 0; i < pieces; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = `${Math.random() * 100}%`;
+        piece.style.background = getRandomColor();
+        piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confettiLayer.appendChild(piece);
+        const duration = 2.5 + Math.random() * 1.2;
+        const drift = (Math.random() - 0.5) * 160;
+        const start = Math.random() * 16;
+        piece.animate([
+          { transform: `translate3d(0, 0px, 0) rotate(${Math.random() * 360}deg)`, opacity: 0.95 },
+          { transform: `translate3d(${drift}px, 320px, 0) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+        ], {
+          duration: duration * 1000,
+          delay: start,
+          fill: 'forwards'
+        });
+      }
+      setTimeout(() => { confettiLayer.innerHTML = ''; }, 4200);
+    }
+
+    function drawSkeleton(ctx, landmarks, width, height, color = '#6fd3ff') {
+      ctx.save();
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.fillStyle = color;
+      connections.forEach(([a, b]) => {
+        const p1 = landmarks[a];
+        const p2 = landmarks[b];
+        ctx.beginPath();
+        ctx.moveTo(p1.x * width, p1.y * height);
+        ctx.lineTo(p2.x * width, p2.y * height);
+        ctx.stroke();
+      });
+      landmarks.forEach((point) => {
+        ctx.beginPath();
+        ctx.arc(point.x * width, point.y * height, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawSyntheticHand(ctx, pose, width, height, shake = 0, color = '#6fd3ff') {
+      ctx.save();
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 3;
+      const mapped = pose.map(([x, y]) => ({
+        x: x * width + shake,
+        y: y * height
+      }));
+      connections.forEach(([a, b]) => {
+        const p1 = mapped[a];
+        const p2 = mapped[b];
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      });
+      mapped.forEach((point) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function countFingers(landmarks) {
+      const extended = [];
+      const fingerTips = [4, 8, 12, 16, 20];
+      const fingerPIPs = [3, 7, 11, 15, 19];
+      const fingerMCPs = [2, 6, 10, 14, 18];
+      fingerTips.forEach((tip, index) => {
+        const tipPoint = landmarks[tip];
+        const pipPoint = landmarks[fingerPIPs[index]];
+        const mcpPoint = landmarks[fingerMCPs[index]];
+        const tipDist = Math.hypot(tipPoint.x - landmarks[0].x, tipPoint.y - landmarks[0].y);
+        const pipDist = Math.hypot(pipPoint.x - landmarks[0].x, pipPoint.y - landmarks[0].y);
+        const isExtended = tipDist > pipDist * 1.05 && tipPoint.y < pipPoint.y + 0.04;
+        extended.push(isExtended);
+      });
+      return extended;
+    }
+
+    function classifyGesture(landmarks) {
+      if (!landmarks || landmarks.length < 21) return null;
+      const fingers = countFingers(landmarks);
+      const wrist = landmarks[0];
+      const thumbTip = landmarks[4];
+      const indexTip = landmarks[8];
+      const middleTip = landmarks[12];
+      const ringTip = landmarks[16];
+      const pinkyTip = landmarks[20];
+      const palmDistance = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
+      const handReach = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
+      const thumbDistance = Math.hypot(thumbTip.x - wrist.x, thumbTip.y - wrist.y);
+      const fingerSpread = fingers.filter(Boolean).length;
+
+      if (thumbDistance < 0.15 && palmDistance < 0.12 && handReach < 0.12 && fingerSpread <= 1) {
+        return 'Rock';
+      }
+      if (fingerSpread >= 4 && palmDistance > 0.16 && handReach > 0.16) {
+        return 'Paper';
+      }
+      if (fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && !fingers[4]) {
+        return 'Scissors';
+      }
+      return null;
+    }
+
+    function onResults(results) {
+      if (!results.multiHandLandmarks || !results.multiHandLandmarks.length) {
+        game.detectedGesture = 'Detecting…';
+        updateGestureBadge();
+        overlay.width = 0;
+        overlay.height = 0;
+        return;
+      }
+
+      const landmarks = results.multiHandLandmarks[0];
+      const gesture = classifyGesture(landmarks) || 'Detecting…';
+      game.detectedGesture = gesture;
+      updateGestureBadge();
+      if (video.videoWidth && video.videoHeight) {
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+        const ctx = overlay.getContext('2d');
+        drawSkeleton(ctx, landmarks, overlay.width, overlay.height);
+      }
+    }
+
+    function initHands() {
+      if (typeof Hands === 'undefined') {
+        setTimeout(initHands, 100);
+        return;
+      }
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.60,
+        minTrackingConfidence: 0.60
+      });
+      hands.onResults(onResults);
+      handsInstance = hands;
+
+      camera = new Camera(video, {
+        onFrame: async () => {
+          if (!handsInstance) return;
+          await handsInstance.send({ image: video });
+        },
+        width: 640,
+        height: 480
+      });
+      camera.start();
+    }
+
+    function drawAIPanel(timestamp) {
+      const ctx = aiCanvas.getContext('2d');
+      const width = aiCanvas.clientWidth || 320;
+      const height = aiCanvas.clientHeight || 280;
+      aiCanvas.width = width * devicePixelRatio;
+      aiCanvas.height = height * devicePixelRatio;
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const neutralPose = syntheticGestures.Paper;
+      const targetPose = game.aiAnimation.target || syntheticGestures.Rock;
+      let shake = 0;
+      let pose = neutralPose;
+
+      if (game.aiAnimation.mode === 'thinking') {
+        const wave = Math.sin(timestamp / 240) * 8;
+        shake = wave;
+        pose = neutralPose;
+      } else if (game.aiAnimation.mode === 'transition') {
+        const elapsed = (timestamp - game.aiAnimation.transitionStart) / 400;
+        const alpha = Math.min(1, elapsed);
+        pose = neutralPose.map((point, index) => [
+          point[0] * (1 - alpha) + targetPose[index][0] * alpha,
+          point[1] * (1 - alpha) + targetPose[index][1] * alpha
+        ]);
+        if (alpha >= 1) {
+          game.aiAnimation.mode = 'settled';
+        }
+      } else {
+        pose = targetPose;
+      }
+
+      drawSyntheticHand(ctx, pose, width, height, shake);
+      requestAnimationFrame(drawAIPanel);
+    }
+
+    function animate() {
+      requestAnimationFrame((timestamp) => {
+        drawAIPanel(timestamp);
+      });
+    }
+
+    function init() {
+      renderBarChart();
+      updateWinRate();
+      renderHistory();
+      updateRoundLabel();
+      updateModeLabel();
+      updateScoreBadge();
+      setDifficulty('Easy');
+      setResultCard('Awaiting your move', 'Play round to begin the countdown and let ARIA react to your gesture.', 'Ready');
+      playRoundBtn.addEventListener('click', onPlayRound);
+      resetBtn.addEventListener('click', resetGame);
+      rematchBtn.addEventListener('click', resetGame);
+      modeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          modeButtons.forEach((btn) => btn.classList.remove('active'));
+          button.classList.add('active');
+          game.mode = Number(button.dataset.mode);
+          updateModeLabel();
+          roundLabel.textContent = `Round 0 / ${game.mode}`;
+          resetGame();
+          setDifficulty(game.difficulty);
+        });
+      });
+      difficultyButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          difficultyButtons.forEach((btn) => btn.classList.remove('active'));
+          button.classList.add('active');
+          setDifficulty(button.dataset.difficulty);
+        });
+      });
+      aiCanvas.width = aiCanvas.clientWidth * devicePixelRatio;
+      aiCanvas.height = aiCanvas.clientHeight * devicePixelRatio;
+      animate();
+      initHands();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    setInterval(() => {
+      if (!game.currentGesture && game.rounds === 0 && !game.matchEnded) {
+        updateGestureBadge();
+      }
+    }, 300);
+  </script>
+</body>
+</html>
