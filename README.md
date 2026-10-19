@@ -1,51 +1,69 @@
-# ARIA vs Rock Paper Scissors
+<div align="center">
 
-A playful webcam-powered Rock Paper Scissors game where ARIA reacts to your gestures, tracks your rounds, and shows a bright pastel-themed UI.
+# 🎮 ARIA vs Rock Paper Scissors AI
 
-## What’s included
+[![Live Demo](https://img.shields.io/badge/Play_Live_Demo-Online-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://jannu15006-ship-it.github.io/RSP-VS-AI/)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-Hands_Vision-blue?style=for-the-badge&logo=google&logoColor=white)](https://mediapipe.dev/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-- Webcam gesture detection using MediaPipe Hands
-- Best-of 3 and Best-of 5 match modes
-- Easy, Medium, and Hard AI behavior
-- Live score, win rate, recent round history, and summary overlay
-- Animated AI hand response and confetti on a win
+An interactive, computer vision-powered Rock Paper Scissors game where **ARIA** (an adaptive AI) reacts in real-time to your hand gestures using webcam landmark detection.
 
-## How to play
+[👉 **Click Here to Play the Live Game in Your Browser**](https://jannu15006-ship-it.github.io/RSP-VS-AI/)
 
-1. Allow camera access when prompted.
-2. Pick your preferred match mode and difficulty.
-3. Press **Play Round** and hold your gesture steady when the countdown reaches **GO!**.
-4. ARIA will respond with its own move and the result will be shown instantly.
+</div>
 
-## Files
+---
 
-- `index.html` — complete game page, styles, and logic
-- `README.md` — project overview and setup instructions
-- `.gitignore` — common files to exclude from Git
+## ✨ Features
 
-## How to run locally
+- 📹 **Real-Time Gesture Recognition:** Powered by Google MediaPipe Hands tracking 21 3D hand landmarks directly in the browser.
+- 🤖 **Adaptive AI Behavior:** Multiple difficulty modes (Easy, Medium, Hard) that analyze opponent move patterns.
+- 🏆 **Match Formats:** Play Best-of-3 or Best-of-5 competitive rounds.
+- 📊 **Live Analytics:** Real-time scoreboard, win-rate percentage, round history tracker, and victory celebrations.
+- 🎨 **Responsive UI:** Clean, modern pastel aesthetic with smooth animations and zero installation required.
 
-1. Open `index.html` directly in your browser, or
-2. Serve the folder with a local web server:
+---
 
-```bash
-python -m http.server
-```
+## 🕹️ How to Play
 
-Then open `http://localhost:8000`.
+1. Open the [Live Demo](https://jannu15006-ship-it.github.io/RSP-VS-AI/) in your browser.
+2. Grant camera permissions when prompted.
+3. Select your match mode (Best of 3 / Best of 5) and difficulty.
+4. Click **Play Round**, follow the countdown, and hold your gesture (Rock ✊, Paper ✋, or Scissors ✌️) steady.
+5. ARIA detects your gesture, counters with its prediction, and updates the score instantly!
 
-## Demo
+---
 
-Add a screenshot or a hosted demo link here once you’re ready to showcase the project.
+## 💻 Run Locally
 
-## Notes
+No build tools or servers required!
 
-- A webcam is required to play.
-- The page uses CDN-hosted MediaPipe libraries, so an internet connection is needed for the first load.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/jannu15006-ship-it/RSP-VS-AI.git
+   cd RSP-VS-AI
+   ```
+2. Open `index.html` directly in any web browser:
+   ```bash
+   # On Windows
+   start index.html
 
-## GitHub-ready checklist
+   # Or serve locally using Python
+   python -m http.server 8000
+   ```
+3. Navigate to `http://localhost:8000` in your browser.
 
-- [x] Main game file in `index.html`
-- [x] README with project description and run instructions
-- [x] `.gitignore` added
-- [ ] Add a screenshot or demo link
+---
+
+## 🛠️ Tech Stack
+
+- **Computer Vision:** Google MediaPipe Hands (WebAssembly / CDN)
+- **Frontend / Logic:** Vanilla JavaScript (ES6+), HTML5 Canvas, Modern CSS3
+- **Hosting:** GitHub Pages
+
+---
+
+## 👩‍💻 Author
+**Jahnavi Lalitha**
+- GitHub: [@jannu15006-ship-it](https://github.com/jannu15006-ship-it)
